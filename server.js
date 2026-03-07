@@ -21,7 +21,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production'
   }
 }));
@@ -38,23 +38,10 @@ app.get('*', (req, res) => {
 });
 
 cron.schedule('*/5 * * * *', () => updateRaceStatuses());
-
-async function setupAdminIfNeeded() {
-  const adminEnv = process.env.SETUP_ADMIN;
-  if (!adminEnv) return;
-  const [username, email, password] = adminEnv.split(':');
-  const bcrypt = require('bcryptjs');
-  const { get, run } = require('./database');
-  const hashed = await bcrypt.hash(password, 10);
-  const ex = await get('SELECT id FROM users WHERE username=$1', [username]);
-  if (ex) await run('UPDATE users SET is_admin=1, password=$1 WHERE username=$2', [hashed, username]);
-  else await run('INSERT INTO users (username,email,password,is_admin) VALUES ($1,$2,$3,1)', [username, email, hashed]);
-  console.log(`✅ Admin "${username}" pronto`);
 }
 
 async function start() {
   await initDatabase();
-  await setupAdminIfNeeded();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏎️  Fanta F1 2026 - Porta ${PORT}`);
   });
