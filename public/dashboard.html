@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fanta F1 2026 - Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.paypal.com/sdk/js?client-id=__PAYPAL_CLIENT_ID__&currency=EUR"></script>
+  <style>
+    body { background: #0a0a0a; color: white; }
+    .f1-red { color: #e10600; }
+    .bg-f1-red { background: #e10600; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; }
+    .card-hover:hover { border-color: #e10600; transition: border-color 0.2s; }
+    .badge-open { background: #16a34a22; color: #4ade80; border: 1px solid #16a34a; }
+    .badge-closed { background: #dc262622; color: #f87171; border: 1px solid #dc2626; }
+    .badge-completed { background: #2563eb22; color: #60a5fa; border: 1px solid #2563eb; }
+    .badge-upcoming { background: #71717a22; color: #a1a1aa; border: 1px solid #52525b; }
+    .input-field { background: #111; border: 1px solid #333; color: white; padding: 0.5rem 0.75rem; border-radius: 0.375rem; }
+    .input-field:focus { outline: none; border-color: #e10600; }
+    .btn-red { background: #e10600; color: white; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; }
+    .btn-red:hover { background: #b80500; }
+    .btn-gray { background: #2a2a2a; color: #ccc; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; }
+    .btn-gray:hover { background: #333; }
+    .nav-link { color: #888; padding: 0.5rem 0.75rem; border-radius: 0.375rem; cursor: pointer; }
+    .nav-link:hover, .nav-link.active { color: white; background: #2a2a2a; }
+    .team-ferrari { border-left: 3px solid #e8002d; }
+    .team-mclaren { border-left: 3px solid #ff8000; }
+    .team-redbull { border-left: 3px solid #3671c6; }
+    .team-mercedes { border-left: 3px solid #27f4d2; }
+    .team-williams { border-left: 3px solid #64c4ff; }
+    .team-aston { border-left: 3px solid #229971; }
+    .team-alpine { border-left: 3px solid #0093cc; }
+    .team-haas { border-left: 3px solid #b6babd; }
+    .team-audi { border-left: 3px solid #e5ad14; }
+    .team-rb { border-left: 3px solid #6692ff; }
+    .team-cadillac { border-left: 3px solid #c8102e; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; overflow-y: auto; }
+    .modal.open { display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem; }
+    .drag-item { cursor: grab; user-select: none; }
+    .drag-item:active { cursor: grabbing; }
+    .drag-over { border: 2px dashed #e10600 !important; }
+    .position-badge { background: #e10600; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; }
+    .dnf-badge { background: #333; color: #888; }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="border-b border-gray-800 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-black">🏎️ FANTA <span class="f1-red">F1</span></span>
+        <span class="text-gray-600 text-sm">2026</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span onclick="showPage('races')" class="nav-link active" id="nav-races">Gare</span>
+        <span onclick="showPage('leaderboard')" class="nav-link" id="nav-leaderboard">Classifica</span>
+        <span onclick="showPage('my-scores')" class="nav-link" id="nav-my-scores">I miei punti</span>
+        <div class="w-px h-5 bg-gray-700 mx-1"></div>
+        <span id="username-badge" class="text-sm text-gray-400"></span>
+        <button onclick="doLogout()" class="text-gray-600 hover:text-red-400 text-sm ml-1">Esci</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="max-w-6xl mx-auto px-4 py-6">
+
+    <!-- PAGE: GARE -->
+    <div id="page-races">
+      <h2 class="text-2xl font-bold mb-4">Calendario Gare <span class="text-gray-500 text-lg">2026</span></h2>
+      <div id="races-list" class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div class="card p-6 animate-pulse"><div class="h-4 bg-gray-700 rounded w-3/4 mb-2"></div><div class="h-3 bg-gray-800 rounded w-1/2"></div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: CLASSIFICA -->
+    <div id="page-leaderboard" class="hidden">
+      <h2 class="text-2xl font-bold mb-4">🏆 Classifica Stagionale</h2>
+      <div class="card overflow-hidden">
+        <table class="w-full">
+          <thead><tr class="border-b border-gray-800">
+            <th class="text-left p-4 text-gray-400 text-xs">POS</th>
+            <th class="text-left p-4 text-gray-400 text-xs">PILOTA</th>
+            <th class="text-right p-4 text-gray-400 text-xs">GARE</th>
+            <th class="text-right p-4 text-gray-400 text-xs">PUNTI</th>
+          </tr></thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: I MIEI PUNTEGGI -->
+    <div id="page-my-scores" class="hidden">
+      <h2 class="text-2xl font-bold mb-4">I Miei Punteggi</h2>
+      <div id="my-scores-list" class="space-y-3"></div>
+    </div>
+
+  </main>
+
+  <!-- MODAL PRONOSTICI -->
+  <div id="modal-predict" class="modal">
+    <div class="bg-gray-900 rounded-xl w-full max-w-2xl border border-gray-700">
+      <div class="p-5 border-b border-gray-800 flex items-center justify-between">
+        <div>
+          <h3 id="modal-race-name" class="font-bold text-xl"></h3>
+          <p id="modal-race-date" class="text-gray-400 text-sm mt-0.5"></p>
+        </div>
+        <button onclick="closeModal()" class="text-gray-500 hover:text-white text-2xl leading-none">×</button>
+      </div>
+
+      <!-- Step 1: Pagamento -->
+      <div id="step-payment" class="p-5">
+        <div class="text-center py-4">
+          <div class="text-4xl mb-3">💳</div>
+          <h4 class="font-bold text-lg mb-1">Quota di partecipazione</h4>
+          <p class="text-gray-400 text-sm mb-5">Prima di inserire i pronostici, paga la quota di 1€ per questo GP.</p>
+          <div class="bg-gray-800 rounded-lg p-4 mb-5">
+            <div class="flex items-center justify-between">
+              <span class="text-gray-300">Quota GP</span>
+              <span class="font-bold text-xl">1,00 €</span>
+            </div>
+          </div>
+          <div id="paypal-button-container"></div>
+          <p class="text-xs text-gray-600 mt-3">Pagamento sicuro tramite PayPal</p>
+        </div>
+      </div>
+
+      <!-- Step 2: Pronostici -->
+      <div id="step-predict" class="hidden">
+        <div class="p-4 bg-gray-800 border-b border-gray-700">
+          <p class="text-sm text-gray-400">
+            <span class="text-yellow-400">💡</span>
+            Trascina i piloti per ordinarli. Puoi segnarli come <strong>DNF</strong>.
+            Seleziona un pilota per la <strong>Pole Position</strong>.
+          </p>
+        </div>
+
+        <!-- Pole Position selector -->
+        <div class="p-4 border-b border-gray-800">
+          <label class="text-xs text-gray-400 block mb-2">POLE POSITION</label>
+          <select id="pole-select" class="input-field w-full">
+            <option value="">-- Seleziona pilota PP --</option>
+          </select>
+        </div>
+
+        <div class="p-4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs text-gray-400">ORDINE DI ARRIVO PREVISTO</span>
+            <span class="text-xs text-gray-600">Trascina per riordinare</span>
+          </div>
+          <div id="drivers-list" class="space-y-1.5 max-h-[50vh] overflow-y-auto pr-1"></div>
+        </div>
+
+        <div class="p-4 border-t border-gray-800 flex gap-3">
+          <button onclick="savePredictions()" class="btn-red flex-1">💾 SALVA PRONOSTICI</button>
+          <button onclick="closeModal()" class="btn-gray">Annulla</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL RISULTATI GARA -->
+  <div id="modal-results" class="modal">
+    <div class="bg-gray-900 rounded-xl w-full max-w-xl border border-gray-700">
+      <div class="p-5 border-b border-gray-800 flex items-center justify-between">
+        <h3 id="results-race-name" class="font-bold text-xl"></h3>
+        <button onclick="document.getElementById('modal-results').classList.remove('open')" class="text-gray-500 hover:text-white text-2xl">×</button>
+      </div>
+      <div id="results-content" class="p-4"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentRaceId = null;
+    let driversData = [];
+    let dragSrcIndex = null;
+
+    // ---- INIT ----
+    async function init() {
+      const me = await fetch('/api/auth/me').then(r => r.json());
+      if (!me.logged) return window.location.href = '/';
+      document.getElementById('username-badge').textContent = me.user.username;
+      loadRaces();
+    }
+
+    // ---- NAVIGATION ----
+    function showPage(page) {
+      ['races','leaderboard','my-scores'].forEach(p => {
+        document.getElementById(`page-${p}`).classList.toggle('hidden', p !== page);
+        document.getElementById(`nav-${p}`).classList.toggle('active', p === page);
+      });
+      if (page === 'leaderboard') loadLeaderboard();
+      if (page === 'my-scores') loadMyScores();
+    }
+
+    // ---- CARICA GARE ----
+    async function loadRaces() {
+      const races = await fetch('/api/game/races').then(r => r.json());
+      const container = document.getElementById('races-list');
+      container.innerHTML = '';
+
+      if (races.length === 0) {
+        container.innerHTML = '<div class="card p-6 text-gray-500 col-span-3 text-center">Nessuna gara disponibile. L\'admin deve sincronizzare il calendario.</div>';
+        return;
+      }
+
+      for (const race of races) {
+        const statusBadge = {
+          open: '<span class="badge-open px-2 py-0.5 rounded text-xs font-semibold">🟢 APERTA</span>',
+          closed: '<span class="badge-closed px-2 py-0.5 rounded text-xs font-semibold">🔴 CHIUSA</span>',
+          completed: '<span class="badge-completed px-2 py-0.5 rounded text-xs font-semibold">✅ COMPLETATA</span>',
+          upcoming: '<span class="badge-upcoming px-2 py-0.5 rounded text-xs font-semibold">⏳ PRESTO</span>'
+        }[race.status] || '';
+
+        const actionBtn = race.status === 'open'
+          ? `<button onclick="openPredict(${race.id})" class="btn-red text-sm w-full mt-3">
+              ${race.has_prediction ? '✏️ MODIFICA' : '➕ INSERISCI'} PRONOSTICI
+             </button>`
+          : race.status === 'completed'
+          ? `<button onclick="showResults(${race.id})" class="btn-gray text-sm w-full mt-3">📊 VEDI RISULTATI</button>`
+          : '';
+
+        const paidBadge = race.has_paid
+          ? '<span class="text-green-400 text-xs">✅ Pagato</span>'
+          : (race.status === 'open' ? '<span class="text-yellow-400 text-xs">💳 Da pagare</span>' : '');
+
+        container.innerHTML += `
+          <div class="card card-hover p-5 flex flex-col">
+            <div class="flex items-start justify-between mb-1">
+              <div>
+                <div class="text-xs text-gray-500 mb-0.5">Round ${race.round}</div>
+                <h3 class="font-bold">${race.name}</h3>
+                <p class="text-gray-400 text-sm">${race.circuit}</p>
+              </div>
+              ${statusBadge}
+            </div>
+            <div class="flex items-center gap-3 mt-2 text-xs text-gray-500">
+              <span>📅 ${formatDate(race.date)}</span>
+              <span>⏰ Scadenza: ${formatDate(race.deadline)}</span>
+            </div>
+            <div class="flex items-center justify-between mt-3">
+              ${paidBadge}
+              ${race.has_prediction ? '<span class="text-blue-400 text-xs">📝 Pronostici inseriti</span>' : '<span></span>'}
+            </div>
+            ${actionBtn}
+          </div>
+        `;
+      }
+    }
+
+    // ---- CARICA CLASSIFICA ----
+    async function loadLeaderboard() {
+      const users = await fetch('/api/game/leaderboard').then(r => r.json());
+      const tbody = document.getElementById('leaderboard-body');
+      tbody.innerHTML = '';
+      users.forEach((u, i) => {
+        const medal = ['🥇','🥈','🥉'][i] || `${i+1}`;
+        const isMe = document.getElementById('username-badge').textContent === u.username;
+        tbody.innerHTML += `
+          <tr class="${isMe ? 'bg-red-950' : 'hover:bg-gray-900'} border-b border-gray-800">
+            <td class="p-4 font-bold text-lg">${medal}</td>
+            <td class="p-4 font-semibold ${isMe ? 'text-red-300' : ''}">${u.username} ${isMe ? '(tu)' : ''}</td>
+            <td class="p-4 text-right text-gray-400">${u.races_played}</td>
+            <td class="p-4 text-right font-bold text-lg ${i === 0 ? 'text-yellow-400' : ''}">${u.season_score}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // ---- I MIEI PUNTEGGI ----
+    async function loadMyScores() {
+      const scores = await fetch('/api/game/my-scores').then(r => r.json());
+      const container = document.getElementById('my-scores-list');
+      if (scores.length === 0) {
+        container.innerHTML = '<div class="card p-6 text-gray-500 text-center">Nessun punteggio ancora. Partecipa al prossimo GP!</div>';
+        return;
+      }
+      let totalPoints = 0;
+      container.innerHTML = scores.map(s => {
+        const raceScore = s.base_score + s.total;
+        totalPoints += raceScore;
+        const breakdown = JSON.parse(s.breakdown || '[]');
+        return `
+          <div class="card p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs text-gray-500">Round ${s.round}</div>
+                <div class="font-bold">${s.race_name}</div>
+                <div class="text-xs text-gray-500 mt-0.5">${formatDate(s.date)}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-2xl font-black ${raceScore >= 200 ? 'text-green-400' : 'text-red-400'}">${raceScore}</div>
+                <div class="text-xs text-gray-500">punti</div>
+              </div>
+            </div>
+            ${breakdown.length ? `
+              <div class="mt-3 pt-3 border-t border-gray-800">
+                <div class="text-xs text-gray-500 mb-2">DETTAGLIO</div>
+                <div class="space-y-1">${breakdown.map(b => `<div class="text-xs text-gray-400">${b}</div>`).join('')}</div>
+                <div class="mt-2 text-xs text-gray-600">Base: 200 | Pos: ${s.position_points >= 0 ? '+' : ''}${s.position_points} | DNF: +${s.dnf_points} | Bonus: +${s.bonus_points} | Malus: ${s.malus_points}</div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ---- APRI PRONOSTICI ----
+    async function openPredict(raceId) {
+      currentRaceId = raceId;
+      const data = await fetch(`/api/game/races/${raceId}`).then(r => r.json());
+      const payStatus = await fetch(`/api/paypal/status/${raceId}`).then(r => r.json());
+
+      document.getElementById('modal-race-name').textContent = data.race.name;
+      document.getElementById('modal-race-date').textContent = `Scadenza: ${formatDate(data.race.deadline)}`;
+
+      const modal = document.getElementById('modal-predict');
+      modal.classList.add('open');
+
+      if (payStatus.paid) {
+        showPredictStep(data);
+      } else {
+        showPaymentStep(raceId);
+      }
+    }
+
+    function showPaymentStep(raceId) {
+      document.getElementById('step-payment').classList.remove('hidden');
+      document.getElementById('step-predict').classList.add('hidden');
+
+      const container = document.getElementById('paypal-button-container');
+      container.innerHTML = '';
+
+      paypal.Buttons({
+        createOrder: async () => {
+          const res = await fetch('/api/paypal/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ race_id: raceId })
+          });
+          const data = await res.json();
+          if (!data.success && data.message) { alert(data.message); return; }
+          return data.orderId;
+        },
+        onApprove: async (data) => {
+          const res = await fetch('/api/paypal/capture-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: data.orderID })
+          });
+          const result = await res.json();
+          if (result.success) {
+            const raceData = await fetch(`/api/game/races/${currentRaceId}`).then(r => r.json());
+            showPredictStep(raceData);
+          }
+        },
+        onError: (err) => alert('Errore PayPal: ' + err)
+      }).render('#paypal-button-container');
+    }
+
+    function showPredictStep(data) {
+      document.getElementById('step-payment').classList.add('hidden');
+      document.getElementById('step-predict').classList.remove('hidden');
+
+      driversData = [...data.drivers];
+
+      // Applica pronostici esistenti se presenti
+      if (data.existingPredictions.length > 0) {
+        const predMap = {};
+        let poleDriverId = null;
+        for (const p of data.existingPredictions) {
+          predMap[p.driver_id] = p;
+          if (p.is_pole_prediction) poleDriverId = p.driver_id;
+        }
+        driversData.sort((a, b) => {
+          const pa = predMap[a.id];
+          const pb = predMap[b.id];
+          if (pa?.is_dnf_prediction && !pb?.is_dnf_prediction) return 1;
+          if (!pa?.is_dnf_prediction && pb?.is_dnf_prediction) return -1;
+          return (pa?.predicted_position || 99) - (pb?.predicted_position || 99);
+        });
+        driversData.forEach(d => {
+          const p = predMap[d.id];
+          d.is_dnf = p?.is_dnf_prediction || false;
+        });
+        // Polo
+        const poleSelect = document.getElementById('pole-select');
+        if (poleDriverId) poleSelect.value = poleDriverId;
+      }
+
+      // Popola select pole
+      const poleSelect = document.getElementById('pole-select');
+      poleSelect.innerHTML = '<option value="">-- Seleziona pilota PP --</option>' +
+        driversData.map(d => `<option value="${d.id}">${d.full_name}</option>`).join('');
+
+      renderDriversList();
+    }
+
+    function renderDriversList() {
+      const container = document.getElementById('drivers-list');
+      let position = 1;
+      container.innerHTML = driversData.map((d, i) => {
+        const teamClass = getTeamClass(d.team);
+        const prevPos = d.prev_position ? `P${d.prev_position}` : (d.prev_dnf ? 'DNF' : '-');
+        const pos = d.is_dnf ? null : position++;
+        const badge = d.is_dnf
+          ? `<span class="position-badge dnf-badge text-xs">DNF</span>`
+          : `<span class="position-badge">${pos}</span>`;
+
+        return `
+          <div class="card p-2.5 flex items-center gap-3 drag-item ${teamClass} ${d.is_dnf ? 'opacity-50' : ''}"
+            draggable="true"
+            ondragstart="dragStart(event, ${i})"
+            ondragover="dragOver(event, ${i})"
+            ondrop="dragDrop(event, ${i})"
+            ondragleave="dragLeave(event)"
+            id="driver-item-${i}">
+            ${badge}
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-sm truncate">${d.full_name}</div>
+              <div class="text-xs text-gray-500">${d.team} · 2025: <span class="text-gray-400">${prevPos}</span></div>
+            </div>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" ${d.is_dnf ? 'checked' : ''} onchange="toggleDnf(${i}, this.checked)" class="accent-red-600">
+              <span class="text-xs text-gray-400">DNF</span>
+            </label>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleDnf(index, isDnf) {
+      driversData[index].is_dnf = isDnf;
+      renderDriversList();
+    }
+
+    // Drag & Drop
+    function dragStart(e, i) { dragSrcIndex = i; e.dataTransfer.effectAllowed = 'move'; }
+    function dragOver(e, i) { e.preventDefault(); document.getElementById(`driver-item-${i}`)?.classList.add('drag-over'); }
+    function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+    function dragDrop(e, i) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      if (dragSrcIndex === null || dragSrcIndex === i) return;
+      const moved = driversData.splice(dragSrcIndex, 1)[0];
+      driversData.splice(i, 0, moved);
+      dragSrcIndex = null;
+      renderDriversList();
+    }
+
+    // ---- SALVA PRONOSTICI ----
+    async function savePredictions() {
+      const poleDriverId = parseInt(document.getElementById('pole-select').value) || null;
+      let position = 1;
+      const predictions = driversData.map(d => ({
+        driver_id: d.id,
+        predicted_position: d.is_dnf ? null : position++,
+        is_dnf: d.is_dnf || false
+      }));
+
+      const res = await fetch(`/api/game/races/${currentRaceId}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ predictions, pole_driver_id: poleDriverId })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        closeModal();
+        loadRaces();
+        alert('✅ ' + data.message);
+      } else {
+        alert('❌ ' + data.error);
+      }
+    }
+
+    // ---- MOSTRA RISULTATI ----
+    async function showResults(raceId) {
+      const race = await fetch(`/api/game/races/${raceId}`).then(r => r.json());
+      const results = await fetch(`/api/game/races/${raceId}/results`).then(r => r.json());
+      const scores = await fetch(`/api/game/races/${raceId}/leaderboard`).then(r => r.json());
+
+      document.getElementById('results-race-name').textContent = race.race.name;
+
+      let html = `
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-xs text-gray-400 mb-2">RISULTATO UFFICIALE</div>
+            <div class="space-y-1">
+              ${results.map(r => `
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="text-gray-500 w-5 text-right">${r.is_dnf ? 'DNF' : 'P'+r.position}</span>
+                  ${r.is_pole ? '<span class="text-yellow-400 text-xs">PP</span>' : '<span class="w-4"></span>'}
+                  <span class="${r.is_dnf ? 'text-gray-500 line-through' : ''}">${r.full_name}</span>
+                  <span class="text-gray-600 text-xs">${r.team}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-400 mb-2">CLASSIFICA GARA</div>
+            <div class="space-y-1">
+              ${scores.map((s, i) => `
+                <div class="flex items-center justify-between text-sm">
+                  <span class="${i < 3 ? ['text-yellow-400','text-gray-300','text-orange-400'][i] : 'text-gray-400'}">${i+1}. ${s.username}</span>
+                  <span class="font-bold ${s.race_score >= 200 ? 'text-green-400' : 'text-red-400'}">${s.race_score}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('results-content').innerHTML = html;
+      document.getElementById('modal-results').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-predict').classList.remove('open');
+      document.getElementById('step-payment').classList.remove('hidden');
+      document.getElementById('step-predict').classList.add('hidden');
+    }
+
+    // ---- HELPERS ----
+    function formatDate(str) {
+      if (!str) return '-';
+      return new Date(str).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function getTeamClass(team) {
+      const map = {
+        'Ferrari': 'team-ferrari', 'McLaren': 'team-mclaren', 'Red Bull': 'team-redbull',
+        'Mercedes': 'team-mercedes', 'Williams': 'team-williams', 'Aston Martin': 'team-aston',
+        'Alpine': 'team-alpine', 'Haas': 'team-haas', 'Audi': 'team-audi',
+        'RB': 'team-rb', 'Racing Bulls': 'team-rb', 'Cadillac': 'team-cadillac'
+      };
+      return map[team] || '';
+    }
+
+    async function doLogout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    init();
+  </script>
+</body>
+</html>

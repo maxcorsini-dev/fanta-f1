@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fanta F1 2026 - Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0a; color: white; }
+    .f1-red { color: #e10600; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; }
+    .btn-red { background: #e10600; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
+    .btn-red:hover { background: #b80500; }
+    .btn-gray { background: #2a2a2a; color: #ccc; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
+    .btn-gray:hover { background: #333; }
+    .btn-green { background: #16a34a; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
+    .btn-green:hover { background: #15803d; }
+    .tab-active { border-bottom: 2px solid #e10600; color: white; }
+    .tab-inactive { color: #666; }
+    .badge-open { background: #16a34a22; color: #4ade80; border: 1px solid #16a34a; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+    .badge-closed { background: #dc262622; color: #f87171; border: 1px solid #dc2626; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+    .badge-completed { background: #2563eb22; color: #60a5fa; border: 1px solid #2563eb; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+    .badge-upcoming { background: #71717a22; color: #a1a1aa; border: 1px solid #52525b; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+    .input-field { background: #111; border: 1px solid #333; color: white; padding: 0.5rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; }
+    .input-field:focus { outline: none; border-color: #e10600; }
+    .stat-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; padding: 1.25rem; }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="border-b border-gray-800 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-black">🏎️ FANTA <span class="f1-red">F1</span></span>
+        <span class="bg-red-900 text-red-300 text-xs px-2 py-0.5 rounded font-semibold">ADMIN</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/dashboard.html" class="text-gray-400 hover:text-white text-sm">→ Vista utente</a>
+        <button onclick="doLogout()" class="text-gray-600 hover:text-red-400 text-sm">Esci</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <!-- STATS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="stat-card">
+        <div class="text-gray-500 text-xs mb-1">PARTECIPANTI</div>
+        <div class="text-3xl font-black" id="stat-users">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-gray-500 text-xs mb-1">GARE TOTALI</div>
+        <div class="text-3xl font-black" id="stat-races">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-gray-500 text-xs mb-1">GARE COMPLETATE</div>
+        <div class="text-3xl font-black" id="stat-completed">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-gray-500 text-xs mb-1">INCASSO TOTALE</div>
+        <div class="text-3xl font-black f1-red" id="stat-revenue">-</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="flex border-b border-gray-800 mb-6 gap-1">
+      <button onclick="showTab('races')" id="tab-races" class="px-4 py-2.5 text-sm font-semibold tab-active">Gare</button>
+      <button onclick="showTab('users')" id="tab-users" class="px-4 py-2.5 text-sm font-semibold tab-inactive">Utenti</button>
+      <button onclick="showTab('payments')" id="tab-payments" class="px-4 py-2.5 text-sm font-semibold tab-inactive">Pagamenti</button>
+      <button onclick="showTab('sync')" id="tab-sync" class="px-4 py-2.5 text-sm font-semibold tab-inactive">Sincronizzazione</button>
+    </div>
+
+    <!-- TAB: GARE -->
+    <div id="panel-races">
+      <div id="races-table"></div>
+    </div>
+
+    <!-- TAB: UTENTI -->
+    <div id="panel-users" class="hidden">
+      <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800">
+            <th class="text-left p-3 text-gray-400">Username</th>
+            <th class="text-left p-3 text-gray-400">Email</th>
+            <th class="text-right p-3 text-gray-400">Punti</th>
+            <th class="text-right p-3 text-gray-400">Registrato</th>
+            <th class="text-right p-3 text-gray-400">Azioni</th>
+          </tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: PAGAMENTI -->
+    <div id="panel-payments" class="hidden">
+      <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800">
+            <th class="text-left p-3 text-gray-400">Utente</th>
+            <th class="text-left p-3 text-gray-400">Gara</th>
+            <th class="text-left p-3 text-gray-400">Importo</th>
+            <th class="text-left p-3 text-gray-400">Status</th>
+            <th class="text-left p-3 text-gray-400">Data</th>
+            <th class="text-right p-3 text-gray-400">Azioni</th>
+          </tr></thead>
+          <tbody id="payments-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: SINCRONIZZAZIONE -->
+    <div id="panel-sync" class="hidden">
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card p-5">
+          <h3 class="font-bold mb-1">📅 Calendario 2026</h3>
+          <p class="text-gray-400 text-sm mb-4">Importa il calendario gare 2026 da Jolpica F1 API</p>
+          <button onclick="syncAction('calendar')" class="btn-green">Sincronizza Calendario</button>
+        </div>
+        <div class="card p-5">
+          <h3 class="font-bold mb-1">👤 Piloti 2026</h3>
+          <p class="text-gray-400 text-sm mb-4">Importa la lista piloti e team per la stagione 2026</p>
+          <button onclick="syncAction('drivers')" class="btn-green">Sincronizza Piloti</button>
+        </div>
+        <div class="card p-5">
+          <h3 class="font-bold mb-1">📊 Storico 2025</h3>
+          <p class="text-gray-400 text-sm mb-4">Importa i risultati 2025 da mostrare nella scheda pronostici.<br><span class="text-yellow-400 text-xs">⚠️ Operazione lunga (~2 min)</span></p>
+          <button onclick="syncAction('previous-year')" class="btn-gray">Importa Storico 2025</button>
+        </div>
+        <div class="card p-5">
+          <h3 class="font-bold mb-1">📋 Log sincronizzazione</h3>
+          <div id="sync-log" class="bg-black rounded p-3 text-xs text-green-400 font-mono h-32 overflow-y-auto">
+            <div>Pronto.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL GESTIONE GARA -->
+  <div id="modal-race" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:50; display:none; align-items:center; justify-content:center; padding:1rem;">
+    <div class="bg-gray-900 rounded-xl w-full max-w-lg border border-gray-700 p-6">
+      <h3 id="modal-race-title" class="font-bold text-xl mb-4"></h3>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">STATUS</label>
+          <select id="edit-status" class="input-field w-full">
+            <option value="upcoming">upcoming</option>
+            <option value="open">open</option>
+            <option value="closed">closed</option>
+            <option value="completed">completed</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">DEADLINE PRONOSTICI</label>
+          <input id="edit-deadline" type="datetime-local" class="input-field w-full">
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button onclick="saveRaceEdit()" class="btn-red flex-1">Salva</button>
+        <button onclick="document.getElementById('modal-race').style.display='none'" class="btn-gray">Annulla</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let editingRaceId = null;
+
+    async function init() {
+      const me = await fetch('/api/auth/me').then(r => r.json());
+      if (!me.logged || !me.user.is_admin) return window.location.href = '/';
+      loadStats();
+      loadRaces();
+    }
+
+    async function loadStats() {
+      const s = await fetch('/api/admin/stats').then(r => r.json());
+      document.getElementById('stat-users').textContent = s.users;
+      document.getElementById('stat-races').textContent = s.total_races;
+      document.getElementById('stat-completed').textContent = s.completed_races;
+      document.getElementById('stat-revenue').textContent = `${parseFloat(s.total_revenue).toFixed(2)}€`;
+    }
+
+    function showTab(tab) {
+      ['races','users','payments','sync'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        btn.className = `px-4 py-2.5 text-sm font-semibold ${t === tab ? 'tab-active' : 'tab-inactive'}`;
+      });
+      if (tab === 'users') loadUsers();
+      if (tab === 'payments') loadPayments();
+    }
+
+    async function loadRaces() {
+      const races = await fetch('/api/admin/races').then(r => r.json());
+      const container = document.getElementById('races-table');
+      container.innerHTML = `
+        <div class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-800">
+              <th class="text-left p-3 text-gray-400">Round</th>
+              <th class="text-left p-3 text-gray-400">GP</th>
+              <th class="text-left p-3 text-gray-400">Data</th>
+              <th class="text-left p-3 text-gray-400">Status</th>
+              <th class="text-right p-3 text-gray-400">Partecipanti</th>
+              <th class="text-right p-3 text-gray-400">Azioni</th>
+            </tr></thead>
+            <tbody>
+              ${races.map(r => `
+                <tr class="border-b border-gray-900 hover:bg-gray-900">
+                  <td class="p-3 text-gray-500">${r.round}</td>
+                  <td class="p-3 font-semibold">${r.name}</td>
+                  <td class="p-3 text-gray-400">${formatDate(r.date)}</td>
+                  <td class="p-3"><span class="badge-${r.status}">${r.status}</span></td>
+                  <td class="p-3 text-right text-gray-400">${r.participants}</td>
+                  <td class="p-3 text-right">
+                    <div class="flex gap-1 justify-end flex-wrap">
+                      <button onclick="editRace(${r.id}, '${r.name}', '${r.status}', '${r.deadline}')" class="btn-gray text-xs py-1 px-2">✏️</button>
+                      ${r.status === 'closed' || r.status === 'completed' ? `
+                        <button onclick="fetchResults(${r.id})" class="btn-green text-xs py-1 px-2">🏁 Risultati API</button>
+                        <button onclick="recalculate(${r.id})" class="btn-gray text-xs py-1 px-2">🔄 Ricalcola</button>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function loadUsers() {
+      const users = await fetch('/api/admin/users').then(r => r.json());
+      document.getElementById('users-tbody').innerHTML = users.map(u => `
+        <tr class="border-b border-gray-900">
+          <td class="p-3 font-semibold">${u.username} ${u.is_admin ? '<span class="text-xs bg-red-900 text-red-300 px-1 rounded">admin</span>' : ''}</td>
+          <td class="p-3 text-gray-400">${u.email}</td>
+          <td class="p-3 text-right font-bold">${u.total_score}</td>
+          <td class="p-3 text-right text-gray-500 text-xs">${formatDate(u.created_at)}</td>
+          <td class="p-3 text-right">
+            <button onclick="deleteUser(${u.id}, '${u.username}')" class="text-red-500 hover:text-red-300 text-xs">Elimina</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadPayments() {
+      const payments = await fetch('/api/admin/payments').then(r => r.json());
+      document.getElementById('payments-tbody').innerHTML = payments.map(p => `
+        <tr class="border-b border-gray-900">
+          <td class="p-3">${p.username}</td>
+          <td class="p-3 text-gray-400">${p.race_name}</td>
+          <td class="p-3">${p.amount}€</td>
+          <td class="p-3">
+            <span class="${p.status === 'completed' ? 'text-green-400' : p.status === 'pending' ? 'text-yellow-400' : 'text-red-400'}">${p.status}</span>
+          </td>
+          <td class="p-3 text-gray-500 text-xs">${formatDate(p.created_at)}</td>
+          <td class="p-3 text-right">
+            ${p.status === 'pending' ? `<button onclick="manualComplete(${p.id})" class="btn-green text-xs py-1 px-2">✅ Completa</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function editRace(id, name, status, deadline) {
+      editingRaceId = id;
+      document.getElementById('modal-race-title').textContent = name;
+      document.getElementById('edit-status').value = status;
+      document.getElementById('edit-deadline').value = deadline?.replace(' ', 'T')?.substring(0, 16) || '';
+      document.getElementById('modal-race').style.display = 'flex';
+    }
+
+    async function saveRaceEdit() {
+      const status = document.getElementById('edit-status').value;
+      const deadline = document.getElementById('edit-deadline').value.replace('T', ' ') + ':00';
+      await fetch(`/api/admin/races/${editingRaceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, deadline })
+      });
+      document.getElementById('modal-race').style.display = 'none';
+      loadRaces();
+      loadStats();
+    }
+
+    async function fetchResults(raceId) {
+      if (!confirm('Recupero risultati da Jolpica API e calcolo punteggi. Continuare?')) return;
+      log('🔄 Recupero risultati in corso...');
+      const res = await fetch(`/api/admin/races/${raceId}/fetch-results`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        log('✅ ' + data.message);
+        loadRaces(); loadStats();
+      } else {
+        log('❌ ' + data.error);
+      }
+    }
+
+    async function recalculate(raceId) {
+      const res = await fetch(`/api/admin/races/${raceId}/recalculate`, { method: 'POST' });
+      const data = await res.json();
+      alert(data.success ? '✅ ' + data.message : '❌ ' + data.error);
+    }
+
+    async function deleteUser(id, name) {
+      if (!confirm(`Eliminare utente "${name}"? Tutti i suoi dati verranno cancellati.`)) return;
+      await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+      loadUsers(); loadStats();
+    }
+
+    async function manualComplete(id) {
+      await fetch(`/api/admin/payments/${id}/complete`, { method: 'POST' });
+      loadPayments(); loadStats();
+    }
+
+    async function syncAction(type) {
+      log(`🔄 Avvio sincronizzazione: ${type}...`);
+      const res = await fetch(`/api/admin/sync/${type}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        log('✅ ' + data.message);
+        loadRaces(); loadStats();
+      } else {
+        log('❌ ' + data.error);
+      }
+    }
+
+    function log(msg) {
+      const el = document.getElementById('sync-log');
+      el.innerHTML += `<div>${new Date().toLocaleTimeString('it-IT')} ${msg}</div>`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function formatDate(str) {
+      if (!str) return '-';
+      return new Date(str).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    async function doLogout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    init();
+  </script>
+</body>
+</html>

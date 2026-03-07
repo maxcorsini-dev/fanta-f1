@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fanta F1 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0a; }
+    .f1-red { color: #e10600; }
+    .bg-f1-red { background: #e10600; }
+    .border-f1-red { border-color: #e10600; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; }
+    .input-field {
+      background: #111; border: 1px solid #333; color: white;
+      padding: 0.75rem 1rem; border-radius: 0.5rem; width: 100%;
+      transition: border-color 0.2s;
+    }
+    .input-field:focus { outline: none; border-color: #e10600; }
+    .btn-primary {
+      background: #e10600; color: white; padding: 0.75rem 2rem;
+      border-radius: 0.5rem; font-weight: bold; cursor: pointer;
+      width: 100%; transition: background 0.2s;
+    }
+    .btn-primary:hover { background: #b80500; }
+    .tab-active { border-bottom: 2px solid #e10600; color: white; }
+    .tab-inactive { color: #666; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 1s linear infinite; }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="text-6xl mb-2">🏎️</div>
+      <h1 class="text-4xl font-black text-white">FANTA <span class="f1-red">F1</span></h1>
+      <p class="text-gray-400 mt-1">Stagione 2026</p>
+    </div>
+
+    <!-- Card -->
+    <div class="card rounded-xl p-8">
+      <!-- Tabs -->
+      <div class="flex border-b border-gray-700 mb-6">
+        <button onclick="showTab('login')" id="tab-login"
+          class="flex-1 pb-3 text-sm font-semibold tab-active transition-all" id="tab-login">
+          ACCEDI
+        </button>
+        <button onclick="showTab('register')" id="tab-register"
+          class="flex-1 pb-3 text-sm font-semibold tab-inactive transition-all">
+          REGISTRATI
+        </button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="form-login">
+        <div class="space-y-4">
+          <div>
+            <label class="text-gray-400 text-xs mb-1 block">USERNAME</label>
+            <input id="login-username" type="text" class="input-field" placeholder="Il tuo username">
+          </div>
+          <div>
+            <label class="text-gray-400 text-xs mb-1 block">PASSWORD</label>
+            <input id="login-password" type="password" class="input-field" placeholder="••••••••">
+          </div>
+          <div id="login-error" class="text-red-400 text-sm hidden"></div>
+          <button onclick="doLogin()" class="btn-primary mt-2">
+            <span id="login-btn-text">ENTRA →</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Register Form -->
+      <div id="form-register" class="hidden">
+        <div class="space-y-4">
+          <div>
+            <label class="text-gray-400 text-xs mb-1 block">USERNAME</label>
+            <input id="reg-username" type="text" class="input-field" placeholder="Scegli un username">
+          </div>
+          <div>
+            <label class="text-gray-400 text-xs mb-1 block">EMAIL</label>
+            <input id="reg-email" type="email" class="input-field" placeholder="tua@email.it">
+          </div>
+          <div>
+            <label class="text-gray-400 text-xs mb-1 block">PASSWORD</label>
+            <input id="reg-password" type="password" class="input-field" placeholder="Minimo 6 caratteri">
+          </div>
+          <div>
+            <label class="text-gray-400 text-xs mb-1 block">CONFERMA PASSWORD</label>
+            <input id="reg-confirm" type="password" class="input-field" placeholder="Ripeti la password">
+          </div>
+          <div id="reg-error" class="text-red-400 text-sm hidden"></div>
+          <div id="reg-success" class="text-green-400 text-sm hidden"></div>
+          <button onclick="doRegister()" class="btn-primary mt-2">REGISTRATI →</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-center text-gray-600 text-xs mt-4">
+      Quota partecipazione: 1€ per ogni GP
+    </p>
+  </div>
+
+  <script>
+    function showTab(tab) {
+      document.getElementById('form-login').classList.toggle('hidden', tab !== 'login');
+      document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
+      document.getElementById('tab-login').className = `flex-1 pb-3 text-sm font-semibold ${tab === 'login' ? 'tab-active' : 'tab-inactive'} transition-all`;
+      document.getElementById('tab-register').className = `flex-1 pb-3 text-sm font-semibold ${tab === 'register' ? 'tab-active' : 'tab-inactive'} transition-all`;
+    }
+
+    async function doLogin() {
+      const btn = document.getElementById('login-btn-text');
+      const err = document.getElementById('login-error');
+      btn.textContent = 'Accesso in corso...';
+      err.classList.add('hidden');
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('login-username').value,
+          password: document.getElementById('login-password').value
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        window.location.href = data.redirect;
+      } else {
+        err.textContent = data.message;
+        err.classList.remove('hidden');
+        btn.textContent = 'ENTRA →';
+      }
+    }
+
+    async function doRegister() {
+      const err = document.getElementById('reg-error');
+      const ok = document.getElementById('reg-success');
+      err.classList.add('hidden');
+      ok.classList.add('hidden');
+
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('reg-username').value,
+          email: document.getElementById('reg-email').value,
+          password: document.getElementById('reg-password').value,
+          confirm_password: document.getElementById('reg-confirm').value
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        window.location.href = data.redirect;
+      } else {
+        err.textContent = data.message;
+        err.classList.remove('hidden');
+      }
+    }
+
+    // Enter per submit
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const activeForm = document.getElementById('form-login').classList.contains('hidden') ? 'register' : 'login';
+        activeForm === 'login' ? doLogin() : doRegister();
+      }
+    });
+
+    // Se già loggato, redirect
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d.logged) window.location.href = d.user.is_admin ? '/admin.html' : '/dashboard.html';
+    });
+  </script>
+</body>
+</html>

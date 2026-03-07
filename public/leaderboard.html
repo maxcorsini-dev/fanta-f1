@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fanta F1 2026 - Classifica</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0a; color: white; }
+    .f1-red { color: #e10600; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-2xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <div class="text-5xl mb-2">🏆</div>
+      <h1 class="text-3xl font-black">CLASSIFICA <span class="f1-red">2026</span></h1>
+      <p class="text-gray-500 text-sm mt-1">Fanta F1 · Stagione in corso</p>
+    </div>
+
+    <!-- Classifica -->
+    <div class="card overflow-hidden mb-6">
+      <div id="leaderboard-container">
+        <div class="p-8 text-center text-gray-500 animate-pulse">Caricamento classifica...</div>
+      </div>
+    </div>
+
+    <!-- Link login -->
+    <div class="text-center">
+      <a href="/" class="text-gray-500 hover:text-white text-sm transition-colors">
+        → Accedi per partecipare
+      </a>
+    </div>
+  </div>
+
+  <script>
+    async function loadLeaderboard() {
+      const users = await fetch('/api/game/leaderboard').then(r => r.json());
+      const container = document.getElementById('leaderboard-container');
+
+      if (users.length === 0) {
+        container.innerHTML = '<div class="p-8 text-center text-gray-500">Nessun partecipante ancora.</div>';
+        return;
+      }
+
+      const maxScore = users[0]?.season_score || 1;
+
+      container.innerHTML = `
+        <div class="p-4 border-b border-gray-800">
+          <div class="grid grid-cols-12 text-xs text-gray-500 font-semibold">
+            <div class="col-span-1">#</div>
+            <div class="col-span-5">PILOTA</div>
+            <div class="col-span-3 text-center">GARE</div>
+            <div class="col-span-3 text-right">PUNTI</div>
+          </div>
+        </div>
+        ${users.map((u, i) => {
+          const medals = ['🥇', '🥈', '🥉'];
+          const rank = medals[i] || `${i + 1}`;
+          const barWidth = Math.round((u.season_score / maxScore) * 100);
+          const isTop3 = i < 3;
+          return `
+            <div class="p-4 border-b border-gray-900 ${isTop3 ? 'bg-gray-900' : ''} hover:bg-gray-900 transition-colors">
+              <div class="grid grid-cols-12 items-center">
+                <div class="col-span-1 text-lg">${rank}</div>
+                <div class="col-span-5">
+                  <div class="font-bold ${i === 0 ? 'text-yellow-300' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-300' : 'text-white'}">${u.username}</div>
+                  <div class="mt-1 bg-gray-800 rounded-full h-1">
+                    <div class="h-1 rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-all" style="width:${barWidth}%"></div>
+                  </div>
+                </div>
+                <div class="col-span-3 text-center text-gray-400 text-sm">${u.races_played} GP</div>
+                <div class="col-span-3 text-right font-black text-xl ${i === 0 ? 'f1-red' : ''}">${u.season_score}</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+
+    loadLeaderboard();
+    // Auto-refresh ogni 60 secondi
+    setInterval(loadLeaderboard, 60000);
+  </script>
+</body>
+</html>
