@@ -118,6 +118,7 @@
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: "include"
         body: JSON.stringify({
           username: document.getElementById('login-username').value,
           password: document.getElementById('login-password').value
@@ -169,7 +170,7 @@
     });
 
     // Se già loggato, redirect
-    fetch('/api/auth/me').then(r => r.json()).then(d => {
+    fetch('/api/auth/me', { credentials: "include" }).then(r => r.json()).then(d => {
       if (d.logged) window.location.href = d.user.is_admin ? '/admin.html' : '/dashboard.html';
     });
   </script>
