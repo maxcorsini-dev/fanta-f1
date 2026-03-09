@@ -10,6 +10,8 @@ const { updateRaceStatuses } = require('./jolpica');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -19,10 +21,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'fanta-f1-secret',
   resave: false,
   saveUninitialized: false,
+  proxy: true,
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production'
+    secure: 'auto',
+    sameSite: 'lax'
   }
 }));
 
@@ -38,7 +42,6 @@ app.get('*', (req, res) => {
 });
 
 cron.schedule('*/5 * * * *', () => updateRaceStatuses());
-}
 
 async function start() {
   await initDatabase();
