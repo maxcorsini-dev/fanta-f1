@@ -97,7 +97,7 @@
     </div>
 
     <p class="text-center text-gray-600 text-xs mt-4">
-      Sito Creato da Massimiliano Corsini
+      Quota partecipazione: 1€ per ogni GP
     </p>
   </div>
 
@@ -169,7 +169,7 @@
     });
 
     // Se già loggato, redirect
-    fetch('/api/auth/me', { credentials: "include" }).then(r => r.json()).then(d => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d.logged) window.location.href = d.user.is_admin ? '/admin.html' : '/dashboard.html';
     });
   </script>
