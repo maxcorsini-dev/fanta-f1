@@ -71,6 +71,11 @@ router.post('/payments/:id/complete', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+router.post('/races/reset-statuses', requireAdmin, async (req, res) => {
+  await run("UPDATE races SET status = 'upcoming'", []);
+  res.json({ success: true, message: 'Tutte le gare resettate a upcoming' });
+});
+
 router.get('/races', requireAdmin, async (req, res) => {
   const season = await get('SELECT id FROM seasons WHERE is_active = 1');
   const races = await query('SELECT * FROM races WHERE season_id = $1 ORDER BY round', [season?.id]);

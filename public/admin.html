@@ -122,6 +122,11 @@
           <button onclick="syncAction('drivers')" class="btn-green">Sincronizza Piloti</button>
         </div>
         <div class="card p-5">
+          <h3 class="font-bold mb-1">🔄 Reset Stato Gare</h3>
+          <p class="text-gray-400 text-sm mb-4">Resetta tutte le gare allo stato "upcoming". Utile per ricominciare da capo o correggere stati errati.</p>
+          <button onclick="resetRaceStatuses()" class="btn-red">Reset Stato Gare</button>
+        </div>
+        <div class="card p-5">
           <h3 class="font-bold mb-1">📊 Storico 2025</h3>
           <p class="text-gray-400 text-sm mb-4">Importa i risultati 2025 da mostrare nella scheda pronostici.<br><span class="text-yellow-400 text-xs">⚠️ Operazione lunga (~2 min)</span></p>
           <button onclick="syncAction('previous-year')" class="btn-gray">Importa Storico 2025</button>
@@ -319,12 +324,15 @@
     }
 
     async function resetStatuses() {
-      addLog('Reset status gare...');
+      if (!confirm('Resettare lo status di tutte le gare?')) return;
+      log('🔄 Reset status gare...');
       const res = await fetch('/api/admin/races/reset-statuses', { method: 'POST' });
       const data = await res.json();
-      addLog(data.success ? '✅ ' + data.message : '❌ ' + data.error);
-      await loadRaces();
+      if (data.success) { log('✅ ' + data.message); loadRaces(); loadStats(); }
+      else log('❌ ' + data.error);
     }
+
+    async function resetRaceStatuses() { resetStatuses(); }
 
     async function syncAction(type) {
       log(`🔄 Avvio sincronizzazione: ${type}...`);
