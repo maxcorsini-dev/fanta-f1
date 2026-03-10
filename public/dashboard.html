@@ -194,14 +194,6 @@
       const me = await fetch('/api/auth/me').then(r => r.json());
       if (!me.logged) return window.location.href = '/';
       document.getElementById('username-badge').textContent = me.user.username;
-      const config = await fetch('/api/config').then(r => r.json());
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = `https://www.paypal.com/sdk/js?client-id=${config.paypalClientId}&currency=EUR`;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
       loadRaces();
     }
 
