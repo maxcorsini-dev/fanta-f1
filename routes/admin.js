@@ -86,8 +86,6 @@ router.put('/races/:id', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-module.exports = router;
-
 // Reset manuale status gare (utile per correggere gare bloccate)
 router.post('/races/reset-statuses', requireAdmin, async (req, res) => {
   try {
@@ -115,3 +113,5 @@ router.get('/leaderboard-detail', requireAdmin, async (req, res) => {
     ORDER BY season_score DESC`);
   res.json(users);
 });
+
+module.exports = router;
