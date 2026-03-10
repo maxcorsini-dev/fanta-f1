@@ -4,11 +4,13 @@ const { query, get, run } = require('./database');
 const BASE_URL = 'https://api.jolpi.ca/ergast/f1';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-function isDnf(status) {
+function isDnf(status, positionText) {
   if (!status) return false;
   if (status === 'Finished') return false;
   if (status.startsWith('+')) return false; // +1 Lap, +2 Laps = doppiati, hanno finito
-  return true; // tutto il resto: Retired, Accident, Engine, ecc.
+  // Se positionText è un numero, il pilota è classificato (doppiato o altro)
+  if (positionText && !isNaN(parseInt(positionText))) return false;
+  return true; // Retired, Accident, Engine, ecc.
 }
 
 function getDeadline(dateStr) {
@@ -78,7 +80,7 @@ async function fetchRaceResults(year, round) {
   for (const r of raceData.Results) {
     const driver = await get('SELECT id FROM drivers WHERE season_id=$1 AND jolpica_id=$2', [season.id, r.Driver.driverId]);
     if (!driver) continue;
-    const dnf = isDnf(r.status);
+    const dnf = isDnf(r.status, r.positionText);
     await run(
       'INSERT INTO race_results (race_id,driver_id,position,is_dnf,is_pole,caused_incident) VALUES ($1,$2,$3,$4,$5,0)',
       [race.id, driver.id, dnf ? null : parseInt(r.position), dnf ? 1 : 0, r.Driver.driverId === poleId ? 1 : 0]
@@ -98,7 +100,7 @@ async function fetchPreviousYearResults(currentYear = 2026) {
     try {
       const rr = await axios.get(`${BASE_URL}/${prev}/${race.round}/results.json`, { timeout: 10000 });
       for (const r of rr.data.MRData.RaceTable.Races[0]?.Results || []) {
-        const dnf = isDnf(r.status);
+        const dnf = isDnf(r.status, r.positionText);
         await run(
           'INSERT INTO previous_year_results (race_name,driver_code,position,is_dnf) VALUES ($1,$2,$3,$4)',
           [race.raceName, r.Driver.code, dnf ? null : parseInt(r.position), dnf ? 1 : 0]

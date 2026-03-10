@@ -127,7 +127,7 @@
         <div class="text-center py-4">
           <div class="text-4xl mb-3">💳</div>
           <h4 class="font-bold text-lg mb-1">Quota di partecipazione</h4>
-          <p class="text-gray-400 text-sm mb-5">Prima di inserire i pronostici, paga la quota di 1€ per questo GP.</p>
+          <p class="text-gray-400 text-sm mb-5">Pronostici salvati! Per partecipare alla classifica paga la quota di 1€ per questo GP.</p>
           <div class="bg-gray-800 rounded-lg p-4 mb-5">
             <div class="flex items-center justify-between">
               <span class="text-gray-300">Quota GP</span>
@@ -323,19 +323,12 @@
     async function openPredict(raceId) {
       currentRaceId = raceId;
       const data = await fetch(`/api/game/races/${raceId}`).then(r => r.json());
-      const payStatus = await fetch(`/api/paypal/status/${raceId}`).then(r => r.json());
 
       document.getElementById('modal-race-name').textContent = data.race.name;
       document.getElementById('modal-race-date').textContent = `Scadenza: ${formatDate(data.race.deadline)}`;
 
-      const modal = document.getElementById('modal-predict');
-      modal.classList.add('open');
-
-      if (payStatus.paid) {
-        showPredictStep(data);
-      } else {
-        showPaymentStep(raceId);
-      }
+      document.getElementById('modal-predict').classList.add('open');
+      showPredictStep(data);
     }
 
     async function showPaymentStep(raceId) {
@@ -488,9 +481,14 @@
       const data = await res.json();
 
       if (data.success) {
-        closeModal();
         loadRaces();
-        alert('✅ ' + data.message);
+        const payStatus = await fetch(`/api/paypal/status/${currentRaceId}`).then(r => r.json());
+        if (payStatus.paid) {
+          closeModal();
+          alert('✅ Pronostici salvati!');
+        } else {
+          showPaymentStep(currentRaceId);
+        }
       } else {
         alert('❌ ' + data.error);
       }

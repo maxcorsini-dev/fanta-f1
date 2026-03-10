@@ -39,8 +39,6 @@ router.post('/races/:id/predict', requireAuth, async (req, res) => {
   const race = await get('SELECT * FROM races WHERE id = $1', [raceId]);
   if (!race) return res.status(404).json({ error: 'Gara non trovata' });
   if (race.status !== 'open') return res.status(400).json({ error: 'Pronostici chiusi' });
-  const payment = await get("SELECT id FROM payments WHERE user_id = $1 AND race_id = $2 AND status = 'completed'", [userId, raceId]);
-  if (!payment) return res.status(400).json({ error: 'Devi prima pagare la quota (1€)' });
 
   const { predictions, pole_driver_id } = req.body;
   const positions = predictions.filter(p => !p.is_dnf).map(p => p.predicted_position);
