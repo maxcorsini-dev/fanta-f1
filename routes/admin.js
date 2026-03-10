@@ -87,3 +87,31 @@ router.put('/races/:id', requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+// Reset manuale status gare (utile per correggere gare bloccate)
+router.post('/races/reset-statuses', requireAdmin, async (req, res) => {
+  try {
+    const { updateRaceStatuses } = require('../jolpica');
+    // Prima resetta tutte a upcoming tranne completed
+    await run("UPDATE races SET status='upcoming' WHERE status != 'completed'");
+    // Poi applica la logica corretta
+    await updateRaceStatuses();
+    res.json({ success: true, message: 'Status gare aggiornati' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Classifica giocatori con dettaglio per gara
+router.get('/leaderboard-detail', requireAdmin, async (req, res) => {
+  const users = await query(`
+    SELECT u.id, u.username, u.total_score,
+      COUNT(s.id) as races_played,
+      COALESCE(SUM(s.base_score + s.total), 0) as season_score,
+      MAX(s.base_score + s.total) as best_race,
+      ROUND(AVG(s.base_score + s.total)::numeric, 1) as avg_score
+    FROM users u
+    LEFT JOIN scores s ON s.user_id = u.id
+    WHERE u.is_admin = 0
+    GROUP BY u.id
+    ORDER BY season_score DESC`);
+  res.json(users);
+});

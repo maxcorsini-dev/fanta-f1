@@ -4,27 +4,17 @@ const { query, get, run } = require('./database');
 const BASE_URL = 'https://api.jolpi.ca/ergast/f1';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Status che indicano un vero DNF (non finito per problemi, non doppiati)
-const DNF_STATUSES = [
-  'Retired', 'Accident', 'Collision', 'Mechanical', 'Engine', 'Gearbox',
-  'Transmission', 'Clutch', 'Hydraulics', 'Electrical', 'Spun off',
-  'Radiator', 'Suspension', 'Brakes', 'Differential', 'Overheating',
-  'Mechanical issue', 'Power Unit', 'ERS', 'Tyre', 'Puncture',
-  'Disqualified', 'Withdrew', 'Not classified', 'Did not qualify',
-  'Did not start', 'Damage', 'Debris', 'Oil leak', 'Fuel system',
-  'Safety', 'Collision damage', 'Power unit', 'Excluded'
-];
-
 function isDnf(status) {
+  if (!status) return false;
   if (status === 'Finished') return false;
-  if (status.startsWith('+')) return false; // +1 Lap, +2 Laps ecc = doppiati ma hanno finito
-  // Tutto il resto è DNF
-  return true;
+  if (status.startsWith('+')) return false; // +1 Lap, +2 Laps = doppiati, hanno finito
+  return true; // tutto il resto: Retired, Accident, Engine, ecc.
 }
 
 function getDeadline(dateStr) {
   const d = new Date(dateStr);
-  d.setDate(d.getDate() - 2); d.setHours(23, 59, 0, 0);
+  d.setDate(d.getDate() - 2);
+  d.setHours(23, 59, 0, 0);
   return d.toISOString().replace('T', ' ').substring(0, 19);
 }
 
@@ -36,7 +26,7 @@ async function fetchCalendar(year = 2026) {
   for (const race of races) {
     const ex = await get('SELECT id FROM races WHERE season_id=$1 AND round=$2', [season.id, parseInt(race.round)]);
     if (!ex) await run(
-      `INSERT INTO races (season_id,round,name,circuit,country,date,deadline,jolpica_round) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      `INSERT INTO races (season_id,round,name,circuit,country,date,deadline,jolpica_round,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'upcoming')`,
       [season.id, parseInt(race.round), race.raceName, race.Circuit.circuitName,
        race.Circuit.Location.country, race.date, getDeadline(race.date), parseInt(race.round)]
     );
@@ -89,10 +79,9 @@ async function fetchRaceResults(year, round) {
     const driver = await get('SELECT id FROM drivers WHERE season_id=$1 AND jolpica_id=$2', [season.id, r.Driver.driverId]);
     if (!driver) continue;
     const dnf = isDnf(r.status);
-    const pos = dnf ? null : parseInt(r.position);
     await run(
       'INSERT INTO race_results (race_id,driver_id,position,is_dnf,is_pole,caused_incident) VALUES ($1,$2,$3,$4,$5,0)',
-      [race.id, driver.id, pos, dnf ? 1 : 0, r.Driver.driverId === poleId ? 1 : 0]
+      [race.id, driver.id, dnf ? null : parseInt(r.position), dnf ? 1 : 0, r.Driver.driverId === poleId ? 1 : 0]
     );
   }
 
@@ -121,14 +110,14 @@ async function fetchPreviousYearResults(currentYear = 2026) {
 
 async function updateRaceStatuses() {
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  // upcoming → open: quando siamo dopo oggi ma prima della deadline
+  // upcoming → open: siamo entro 2 settimane dalla gara e la deadline non è ancora scaduta
   await run(
-    "UPDATE races SET status='open' WHERE status='upcoming' AND $1 <= deadline AND date >= $1",
+    "UPDATE races SET status='open' WHERE status='upcoming' AND deadline > $1",
     [now]
   );
-  // open → closed: quando la deadline è passata (ma non ancora completata)
+  // open → closed: deadline scaduta (ma non ancora con risultati = completed)
   await run(
-    "UPDATE races SET status='closed' WHERE status='open' AND deadline < $1",
+    "UPDATE races SET status='closed' WHERE status='open' AND deadline <= $1",
     [now]
   );
 }

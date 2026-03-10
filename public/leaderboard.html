@@ -8,7 +8,10 @@
   <style>
     body { background: #0a0a0a; color: white; }
     .f1-red { color: #e10600; }
+    .bg-f1-red { background: #e10600; }
     .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 0.75rem; }
+    .tab-active { border-bottom: 2px solid #e10600; color: white; }
+    .tab-inactive { color: #6b7280; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
     .animate-pulse { animation: pulse 2s ease-in-out infinite; }
   </style>
@@ -16,74 +19,152 @@
 <body class="min-h-screen">
   <div class="max-w-2xl mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="text-center mb-8">
+    <div class="text-center mb-6">
       <div class="text-5xl mb-2">🏆</div>
       <h1 class="text-3xl font-black">CLASSIFICA <span class="f1-red">2026</span></h1>
       <p class="text-gray-500 text-sm mt-1">Fanta F1 · Stagione in corso</p>
     </div>
 
-    <!-- Classifica -->
-    <div class="card overflow-hidden mb-6">
-      <div id="leaderboard-container">
-        <div class="p-8 text-center text-gray-500 animate-pulse">Caricamento classifica...</div>
+    <!-- Tabs -->
+    <div class="flex border-b border-gray-800 mb-6">
+      <button onclick="showTab('season')" id="tab-season" class="px-6 py-3 font-semibold text-sm tab-active transition-colors">🏆 Stagione</button>
+      <button onclick="showTab('race')" id="tab-race" class="px-6 py-3 font-semibold text-sm tab-inactive transition-colors">🏎️ Per Gara</button>
+    </div>
+
+    <!-- Classifica Stagione -->
+    <div id="panel-season">
+      <div class="card overflow-hidden mb-6">
+        <div id="leaderboard-container">
+          <div class="p-8 text-center text-gray-500 animate-pulse">Caricamento classifica...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Classifica Per Gara -->
+    <div id="panel-race" class="hidden">
+      <div class="mb-4">
+        <select id="race-select" onchange="loadRaceLeaderboard()" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm">
+          <option value="">Seleziona una gara...</option>
+        </select>
+      </div>
+      <div class="card overflow-hidden mb-6">
+        <div id="race-leaderboard-container">
+          <div class="p-8 text-center text-gray-500">Seleziona una gara per vedere la classifica.</div>
+        </div>
       </div>
     </div>
 
     <!-- Link login -->
     <div class="text-center">
-      <a href="/" class="text-gray-500 hover:text-white text-sm transition-colors">
-        → Accedi per partecipare
-      </a>
+      <a href="/" class="text-gray-500 hover:text-white text-sm transition-colors">→ Accedi per partecipare</a>
     </div>
   </div>
 
   <script>
+    let races = [];
+
+    function showTab(tab) {
+      document.getElementById('panel-season').classList.toggle('hidden', tab !== 'season');
+      document.getElementById('panel-race').classList.toggle('hidden', tab !== 'race');
+      document.getElementById('tab-season').className = `px-6 py-3 font-semibold text-sm transition-colors ${tab === 'season' ? 'tab-active' : 'tab-inactive'}`;
+      document.getElementById('tab-race').className = `px-6 py-3 font-semibold text-sm transition-colors ${tab === 'race' ? 'tab-active' : 'tab-inactive'}`;
+    }
+
     async function loadLeaderboard() {
       const users = await fetch('/api/game/leaderboard').then(r => r.json());
       const container = document.getElementById('leaderboard-container');
-
-      if (users.length === 0) {
+      if (!users.length) {
         container.innerHTML = '<div class="p-8 text-center text-gray-500">Nessun partecipante ancora.</div>';
         return;
       }
-
       const maxScore = users[0]?.season_score || 1;
-
       container.innerHTML = `
         <div class="p-4 border-b border-gray-800">
           <div class="grid grid-cols-12 text-xs text-gray-500 font-semibold">
             <div class="col-span-1">#</div>
-            <div class="col-span-5">PILOTA</div>
-            <div class="col-span-3 text-center">GARE</div>
-            <div class="col-span-3 text-right">PUNTI</div>
+            <div class="col-span-5">GIOCATORE</div>
+            <div class="col-span-2 text-center">GARE</div>
+            <div class="col-span-2 text-center">MEDIA</div>
+            <div class="col-span-2 text-right">PUNTI</div>
           </div>
         </div>
         ${users.map((u, i) => {
-          const medals = ['🥇', '🥈', '🥉'];
-          const rank = medals[i] || `${i + 1}`;
+          const medals = ['🥇','🥈','🥉'];
+          const rank = medals[i] || `${i+1}`;
           const barWidth = Math.round((u.season_score / maxScore) * 100);
-          const isTop3 = i < 3;
+          const avg = u.races_played > 0 ? Math.round(u.season_score / u.races_played) : 0;
           return `
-            <div class="p-4 border-b border-gray-900 ${isTop3 ? 'bg-gray-900' : ''} hover:bg-gray-900 transition-colors">
+            <div class="p-4 border-b border-gray-900 ${i < 3 ? 'bg-gray-900' : ''} hover:bg-gray-800 transition-colors">
               <div class="grid grid-cols-12 items-center">
                 <div class="col-span-1 text-lg">${rank}</div>
                 <div class="col-span-5">
-                  <div class="font-bold ${i === 0 ? 'text-yellow-300' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-300' : 'text-white'}">${u.username}</div>
-                  <div class="mt-1 bg-gray-800 rounded-full h-1">
-                    <div class="h-1 rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-all" style="width:${barWidth}%"></div>
+                  <div class="font-bold ${i===0?'text-yellow-300':i===1?'text-gray-300':i===2?'text-orange-300':'text-white'}">${u.username}</div>
+                  <div class="mt-1 bg-gray-800 rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full bg-gradient-to-r from-red-600 to-red-400" style="width:${barWidth}%"></div>
                   </div>
                 </div>
-                <div class="col-span-3 text-center text-gray-400 text-sm">${u.races_played} GP</div>
-                <div class="col-span-3 text-right font-black text-xl ${i === 0 ? 'f1-red' : ''}">${u.season_score}</div>
+                <div class="col-span-2 text-center text-gray-400 text-sm">${u.races_played} GP</div>
+                <div class="col-span-2 text-center text-gray-400 text-sm">${avg} pt</div>
+                <div class="col-span-2 text-right font-black text-xl ${i===0?'f1-red':''}">${u.season_score}</div>
               </div>
-            </div>
-          `;
-        }).join('')}
-      `;
+            </div>`;
+        }).join('')}`;
+    }
+
+    async function loadRaces() {
+      races = await fetch('/api/game/races').then(r => r.json()).catch(() => []);
+      const sel = document.getElementById('race-select');
+      const completed = races.filter(r => r.status === 'completed');
+      completed.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = `${r.name} (Round ${r.round})`;
+        sel.appendChild(opt);
+      });
+    }
+
+    async function loadRaceLeaderboard() {
+      const raceId = document.getElementById('race-select').value;
+      const container = document.getElementById('race-leaderboard-container');
+      if (!raceId) { container.innerHTML = '<div class="p-8 text-center text-gray-500">Seleziona una gara.</div>'; return; }
+      container.innerHTML = '<div class="p-8 text-center text-gray-500 animate-pulse">Caricamento...</div>';
+      const scores = await fetch(`/api/game/races/${raceId}/leaderboard`).then(r => r.json());
+      if (!scores.length) { container.innerHTML = '<div class="p-8 text-center text-gray-500">Nessun punteggio disponibile.</div>'; return; }
+      const maxScore = scores[0]?.race_score || 1;
+      container.innerHTML = `
+        <div class="p-4 border-b border-gray-800">
+          <div class="grid grid-cols-12 text-xs text-gray-500 font-semibold">
+            <div class="col-span-1">#</div>
+            <div class="col-span-5">GIOCATORE</div>
+            <div class="col-span-3 text-center">BONUS/MALUS</div>
+            <div class="col-span-3 text-right">PUNTI</div>
+          </div>
+        </div>
+        ${scores.map((s, i) => {
+          const medals = ['🥇','🥈','🥉'];
+          const rank = medals[i] || `${i+1}`;
+          const bonusMalus = (s.bonus_points || 0) + (s.malus_points || 0);
+          const bmColor = bonusMalus > 0 ? 'text-green-400' : bonusMalus < 0 ? 'text-red-400' : 'text-gray-400';
+          const barWidth = Math.round((s.race_score / maxScore) * 100);
+          return `
+            <div class="p-4 border-b border-gray-900 ${i < 3 ? 'bg-gray-900' : ''} hover:bg-gray-800 transition-colors">
+              <div class="grid grid-cols-12 items-center">
+                <div class="col-span-1 text-lg">${rank}</div>
+                <div class="col-span-5">
+                  <div class="font-bold ${i===0?'text-yellow-300':i===1?'text-gray-300':i===2?'text-orange-300':'text-white'}">${s.username}</div>
+                  <div class="mt-1 bg-gray-800 rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full bg-gradient-to-r from-red-600 to-red-400" style="width:${barWidth}%"></div>
+                  </div>
+                </div>
+                <div class="col-span-3 text-center text-sm ${bmColor}">${bonusMalus > 0 ? '+' : ''}${bonusMalus}</div>
+                <div class="col-span-3 text-right font-black text-xl ${i===0?'f1-red':''}">${s.race_score}</div>
+              </div>
+            </div>`;
+        }).join('')}`;
     }
 
     loadLeaderboard();
-    // Auto-refresh ogni 60 secondi
+    loadRaces();
     setInterval(loadLeaderboard, 60000);
   </script>
 </body>

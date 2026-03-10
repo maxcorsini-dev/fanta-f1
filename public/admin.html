@@ -127,6 +127,11 @@
           <button onclick="syncAction('previous-year')" class="btn-gray">Importa Storico 2025</button>
         </div>
         <div class="card p-5">
+          <h3 class="font-bold mb-1">🔄 Status Gare</h3>
+          <p class="text-gray-400 text-sm mb-4">Ricalcola automaticamente lo status di tutte le gare (upcoming/open/closed) in base alle date.</p>
+          <button onclick="resetStatuses()" class="btn-gray">Reset Status Gare</button>
+        </div>
+        <div class="card p-5">
           <h3 class="font-bold mb-1">📋 Log sincronizzazione</h3>
           <div id="sync-log" class="bg-black rounded p-3 text-xs text-green-400 font-mono h-32 overflow-y-auto">
             <div>Pronto.</div>
@@ -311,6 +316,14 @@
     async function manualComplete(id) {
       await fetch(`/api/admin/payments/${id}/complete`, { method: 'POST' });
       loadPayments(); loadStats();
+    }
+
+    async function resetStatuses() {
+      addLog('Reset status gare...');
+      const res = await fetch('/api/admin/races/reset-statuses', { method: 'POST' });
+      const data = await res.json();
+      addLog(data.success ? '✅ ' + data.message : '❌ ' + data.error);
+      await loadRaces();
     }
 
     async function syncAction(type) {
