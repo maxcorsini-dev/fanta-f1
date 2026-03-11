@@ -52,7 +52,7 @@ app.get('/api/cron/update-races', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
-    const { updateRaceStatuses } = require('../jolpica');
+    const { updateRaceStatuses } = require('../openf1');
     await updateRaceStatuses();
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

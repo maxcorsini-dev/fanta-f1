@@ -1,6 +1,6 @@
 const express = require('express');
 const { query, get, run } = require('../database');
-const { fetchCalendar, fetchDrivers, fetchRaceResults, fetchPreviousYearResults } = require('../jolpica');
+const { fetchCalendar, fetchDrivers, fetchRaceResults, fetchPreviousYearResults } = require('../openf1');
 const { calculateScores } = require('../scoring');
 const router = express.Router();
 
@@ -94,7 +94,7 @@ router.put('/races/:id', requireAdmin, async (req, res) => {
 // Reset manuale status gare (utile per correggere gare bloccate)
 router.post('/races/reset-statuses', requireAdmin, async (req, res) => {
   try {
-    const { updateRaceStatuses } = require('../jolpica');
+    const { updateRaceStatuses } = require('../openf1');
     // Prima resetta tutte a upcoming tranne completed
     await run("UPDATE races SET status='upcoming' WHERE status != 'completed'");
     // Poi applica la logica corretta

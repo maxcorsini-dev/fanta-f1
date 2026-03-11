@@ -5,7 +5,7 @@ const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
 const cron = require('node-cron');
 const { initDatabase, pool } = require('./database');
-const { updateRaceStatuses } = require('./jolpica');
+const { updateRaceStatuses } = require('./openf1');
 
 const app = express();
 const PORT = process.env.PORT || 3000;

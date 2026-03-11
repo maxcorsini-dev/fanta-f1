@@ -129,8 +129,8 @@ async function fetchRaceResults(year, sessionKey) {
   await run('DELETE FROM race_results WHERE race_id=$1', [race.id]);
 
   for (const r of results) {
-    const jolpicaId = String(r.driver_number);
-    const driver = await get('SELECT id FROM drivers WHERE season_id=$1 AND jolpica_id=$2', [season.id, jolpicaId]);
+    const driverKey = String(r.driver_number);
+    const driver = await get('SELECT id FROM drivers WHERE season_id=$1 AND jolpica_id=$2', [season.id, driverKey]);
     if (!driver) continue;
 
     const dnf = r.dnf || r.dns || r.dsq || false;
