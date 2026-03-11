@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { query, get, run } = require('../database');
+const { sendWelcome } = require('../mailer');
 const router = express.Router();
 
 router.post('/register', async (req, res) => {
@@ -18,6 +19,7 @@ router.post('/register', async (req, res) => {
   req.session.userId = user.id;
   req.session.username = username;
   req.session.isAdmin = false;
+  sendWelcome(email.toLowerCase(), username);
   res.json({ success: true, redirect: '/dashboard.html' });
 });
 

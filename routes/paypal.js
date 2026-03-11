@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const { get, run } = require('../database');
+const { sendPaymentReceipt } = require('../mailer');
 const router = express.Router();
 
 function requireAuth(req, res, next) {
@@ -24,6 +25,8 @@ router.post('/create-order', requireAuth, async (req, res) => {
   if (!race) return res.status(404).json({ error: 'Gara non trovata' });
   const existing = await get("SELECT id FROM payments WHERE user_id = $1 AND race_id = $2 AND status = 'completed'", [req.session.userId, race_id]);
   if (existing) return res.json({ success: false, message: 'Hai già pagato' });
+  // Rimuove eventuali pending precedenti per evitare orfani
+  await run("DELETE FROM payments WHERE user_id = $1 AND race_id = $2 AND status = 'pending'", [req.session.userId, race_id]);
   try {
     const token = await getToken();
     const order = await axios.post(`${PAYPAL_BASE}/v2/checkout/orders`, {
@@ -47,6 +50,10 @@ router.post('/capture-order', requireAuth, async (req, res) => {
       const captureId = capture.data.purchase_units[0].payments.captures[0].id;
       await run("UPDATE payments SET status='completed', paypal_capture_id=$1, completed_at=$2 WHERE paypal_order_id=$3 AND user_id=$4",
         [captureId, new Date().toISOString(), req.body.order_id, req.session.userId]);
+      const payment = await get(`SELECT p.race_id, r.name as race_name, u.email, u.username
+        FROM payments p JOIN races r ON r.id = p.race_id JOIN users u ON u.id = p.user_id
+        WHERE p.paypal_order_id = $1`, [req.body.order_id]);
+      if (payment) sendPaymentReceipt(payment.email, payment.username, payment.race_name, '1.00');
       res.json({ success: true });
     } else { res.json({ success: false, message: capture.data.status }); }
   } catch (e) { res.status(500).json({ error: e.message }); }

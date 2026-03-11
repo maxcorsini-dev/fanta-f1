@@ -2,6 +2,7 @@ const express = require('express');
 const { query, get, run } = require('../database');
 const { fetchCalendar, fetchDrivers, fetchRaceResults, fetchPreviousYearResults } = require('../openf1');
 const { calculateScores } = require('../scoring');
+const { sendScoresReady } = require('../mailer');
 const router = express.Router();
 
 function requireAdmin(req, res, next) {
@@ -47,6 +48,15 @@ router.post('/races/:id/fetch-results', requireAdmin, async (req, res) => {
     if (!race) return res.status(404).json({ error: 'Gara non trovata' });
     await fetchRaceResults(2026, race.jolpica_round);
     const scores = await calculateScores(parseInt(req.params.id));
+    // Notifica ogni partecipante con il suo punteggio
+    for (const s of scores) {
+      const user = await get('SELECT email, username FROM users WHERE id = $1', [s.userId]);
+      const score = await get('SELECT total, breakdown FROM scores WHERE user_id = $1 AND race_id = $2', [s.userId, parseInt(req.params.id)]);
+      if (user && score) {
+        const breakdown = JSON.parse(score.breakdown || '[]');
+        sendScoresReady(user.email, user.username, race.name, score.total, breakdown);
+      }
+    }
     res.json({ success: true, message: `Risultati importati. ${scores.length} punteggi calcolati.` });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -80,6 +90,15 @@ router.get('/payments', requireAdmin, async (req, res) => {
     JOIN users u ON u.id = p.user_id JOIN races r ON r.id = p.race_id ORDER BY p.created_at DESC`));
 });
 
+router.post('/payments/cleanup-pending', requireAdmin, async (req, res) => {
+  try {
+    const result = await query(
+      "DELETE FROM payments WHERE status = 'pending' AND created_at < to_char(now() - interval '2 hours', 'YYYY-MM-DD HH24:MI:SS') RETURNING id"
+    );
+    res.json({ success: true, message: `${result.length} pagamenti pending rimossi` });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/payments/:id/complete', requireAdmin, async (req, res) => {
   await run("UPDATE payments SET status = 'completed', completed_at = $1 WHERE id = $2", [new Date().toISOString(), req.params.id]);
   res.json({ success: true });
@@ -110,6 +129,29 @@ router.post('/races/reset-statuses', requireAdmin, async (req, res) => {
     await updateRaceStatuses();
     res.json({ success: true, message: 'Status gare aggiornati' });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Risultati di una gara (per gestione incidenti)
+router.get('/races/:id/results', requireAdmin, async (req, res) => {
+  const results = await query(`
+    SELECT rr.driver_id, rr.position, rr.is_dnf, rr.is_pole, rr.caused_incident,
+      d.full_name, d.code, d.team
+    FROM race_results rr
+    JOIN drivers d ON d.id = rr.driver_id
+    WHERE rr.race_id = $1
+    ORDER BY rr.is_dnf ASC, rr.position ASC NULLS LAST
+  `, [req.params.id]);
+  res.json(results);
+});
+
+// Toggle caused_incident per un pilota in una gara
+router.put('/races/:id/results/:driverId/incident', requireAdmin, async (req, res) => {
+  const { caused_incident } = req.body;
+  await run(
+    'UPDATE race_results SET caused_incident = $1 WHERE race_id = $2 AND driver_id = $3',
+    [caused_incident ? 1 : 0, req.params.id, req.params.driverId]
+  );
+  res.json({ success: true });
 });
 
 // Classifica giocatori con dettaglio per gara

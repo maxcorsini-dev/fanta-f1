@@ -93,6 +93,9 @@
 
     <!-- TAB: PAGAMENTI -->
     <div id="panel-payments" class="hidden">
+      <div class="flex justify-end mb-3">
+        <button onclick="cleanupPending()" class="btn-gray text-xs">🗑️ Pulisci pending orfani (&gt;2h)</button>
+      </div>
       <div class="card overflow-hidden">
         <table class="w-full text-sm">
           <thead><tr class="border-b border-gray-800">
@@ -150,6 +153,19 @@
       </div>
     </div>
   </main>
+
+  <!-- MODAL INCIDENTI -->
+  <div id="modal-incidents" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:50; align-items:center; justify-content:center; padding:1rem;">
+    <div class="bg-gray-900 rounded-xl w-full max-w-lg border border-gray-700 p-6 max-h-[80vh] flex flex-col">
+      <h3 id="modal-incidents-title" class="font-bold text-xl mb-1"></h3>
+      <p class="text-gray-400 text-xs mb-4">Spunta i piloti che hanno causato un incidente. I pronostici DNF su questi piloti riceveranno -10 punti.</p>
+      <div id="incidents-list" class="overflow-y-auto flex-1 space-y-2 mb-4"></div>
+      <div class="flex gap-3">
+        <button onclick="saveIncidents()" class="btn-red flex-1">Salva e Ricalcola</button>
+        <button onclick="document.getElementById('modal-incidents').style.display='none'" class="btn-gray">Chiudi</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL GESTIONE GARA -->
   <div id="modal-race" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:50; display:none; align-items:center; justify-content:center; padding:1rem;">
@@ -233,6 +249,7 @@
                       ${r.status === 'closed' || r.status === 'completed' ? `
                         <button onclick="fetchResults(${r.id})" class="btn-green text-xs py-1 px-2">🏁 Risultati API</button>
                         <button onclick="recalculate(${r.id})" class="btn-gray text-xs py-1 px-2">🔄 Ricalcola</button>
+                        ${r.status === 'completed' ? `<button onclick="openIncidents(${r.id}, '${r.name}')" class="btn-gray text-xs py-1 px-2">🚨 Incidenti</button>` : ''}
                       ` : ''}
                     </div>
                   </td>
@@ -365,6 +382,47 @@
     async function doLogout() {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/';
+    }
+
+    async function cleanupPending() {
+      const res = await fetch('/api/admin/payments/cleanup-pending', { method: 'POST' });
+      const data = await res.json();
+      alert(data.success ? '✅ ' + data.message : '❌ ' + data.error);
+      if (data.success) loadPayments();
+    }
+
+    let incidentsRaceId = null;
+
+    async function openIncidents(raceId, raceName) {
+      incidentsRaceId = raceId;
+      document.getElementById('modal-incidents-title').textContent = `🚨 Incidenti — ${raceName}`;
+      const results = await fetch(`/api/admin/races/${raceId}/results`).then(r => r.json());
+      document.getElementById('incidents-list').innerHTML = results.map(r => `
+        <label class="flex items-center gap-3 p-2 rounded hover:bg-gray-800 cursor-pointer">
+          <input type="checkbox" data-driver-id="${r.driver_id}" ${r.caused_incident ? 'checked' : ''}
+            class="w-4 h-4 accent-red-500">
+          <span class="${r.is_dnf ? 'text-red-400' : 'text-gray-300'} flex-1">
+            ${r.full_name} <span class="text-gray-500 text-xs">${r.code}</span>
+          </span>
+          ${r.is_dnf ? '<span class="text-xs text-red-400 bg-red-900/30 px-1 rounded">DNF</span>' : `<span class="text-xs text-gray-500">P${r.position}</span>`}
+        </label>
+      `).join('');
+      document.getElementById('modal-incidents').style.display = 'flex';
+    }
+
+    async function saveIncidents() {
+      const checkboxes = document.querySelectorAll('#incidents-list input[type=checkbox]');
+      for (const cb of checkboxes) {
+        await fetch(`/api/admin/races/${incidentsRaceId}/results/${cb.dataset.driverId}/incident`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caused_incident: cb.checked })
+        });
+      }
+      const res = await fetch(`/api/admin/races/${incidentsRaceId}/recalculate`, { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('modal-incidents').style.display = 'none';
+      log(data.success ? `✅ Incidenti salvati. ${data.message}` : `❌ ${data.error}`);
     }
 
     init();

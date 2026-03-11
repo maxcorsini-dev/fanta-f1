@@ -4,14 +4,41 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
 const cron = require('node-cron');
-const { initDatabase, pool } = require('./database');
+const { initDatabase, pool, query, get } = require('./database');
 const { updateRaceStatuses } = require('./openf1');
+const { sendDeadlineReminder } = require('./mailer');
+
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.set('trust proxy', 1);
 app.use(express.json());
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Troppi tentativi. Riprova tra 15 minuti.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { success: false, message: 'Troppe richieste. Riprova tra un minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { success: false, message: 'Troppe richieste admin. Riprova tra un minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -29,10 +56,10 @@ app.use(session({
   }
 }));
 
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/game', require('./routes/game'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/paypal', require('./routes/paypal'));
+app.use('/api/auth', authLimiter, require('./routes/auth'));
+app.use('/api/game', apiLimiter, require('./routes/game'));
+app.use('/api/admin', adminLimiter, require('./routes/admin'));
+app.use('/api/paypal', apiLimiter, require('./routes/paypal'));
 
 // Setup admin via variabile d'ambiente
 // Espone il PayPal Client ID al frontend in modo sicuro
@@ -60,6 +87,30 @@ app.get('*', (req, res) => {
 });
 
 cron.schedule('*/5 * * * *', () => updateRaceStatuses());
+
+// Reminder deadline: ogni ora controlla gare che scadono nelle prossime 24h
+cron.schedule('0 * * * *', async () => {
+  try {
+    const now = new Date();
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const races = await query(
+      "SELECT id, name, deadline FROM races WHERE status = 'open' AND deadline > $1 AND deadline <= $2",
+      [now.toISOString().replace('T', ' ').substring(0, 19), in24h.toISOString().replace('T', ' ').substring(0, 19)]
+    );
+    for (const race of races) {
+      const users = await query(`
+        SELECT u.id, u.email, u.username FROM users u
+        WHERE u.is_admin = 0
+        AND u.id NOT IN (SELECT DISTINCT user_id FROM predictions WHERE race_id = $1)
+      `, [race.id]);
+      for (const user of users) {
+        sendDeadlineReminder(user.email, user.username, race.name, race.deadline);
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Errore cron reminder deadline:', e.message);
+  }
+});
 
 async function start() {
   await initDatabase();
