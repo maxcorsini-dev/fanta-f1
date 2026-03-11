@@ -113,7 +113,7 @@
       <div class="grid md:grid-cols-2 gap-4">
         <div class="card p-5">
           <h3 class="font-bold mb-1">📅 Calendario 2026</h3>
-          <p class="text-gray-400 text-sm mb-4">Importa il calendario gare 2026 da Jolpica F1 API</p>
+          <p class="text-gray-400 text-sm mb-4">Importa il calendario gare 2026 da OpenF1 API</p>
           <button onclick="syncAction('calendar')" class="btn-green">Sincronizza Calendario</button>
         </div>
         <div class="card p-5">
@@ -125,6 +125,11 @@
           <h3 class="font-bold mb-1">🔄 Reset Stato Gare</h3>
           <p class="text-gray-400 text-sm mb-4">Resetta tutte le gare allo stato "upcoming". Utile per ricominciare da capo o correggere stati errati.</p>
           <button onclick="resetRaceStatuses()" class="btn-red">Reset Stato Gare</button>
+        </div>
+        <div class="card p-5">
+          <h3 class="font-bold mb-1">🧹 Pulizia Piloti Duplicati</h3>
+          <p class="text-gray-400 text-sm mb-4">Rimuove i piloti con vecchio formato ID (Jolpica). Da usare una volta dopo la migrazione a OpenF1.</p>
+          <button onclick="syncAction('clean-drivers')" class="btn-red">Pulisci Duplicati</button>
         </div>
         <div class="card p-5">
           <h3 class="font-bold mb-1">📊 Storico 2025</h3>

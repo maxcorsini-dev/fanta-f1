@@ -56,6 +56,20 @@ router.post('/races/:id/recalculate', requireAdmin, async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+router.post('/sync/clean-drivers', requireAdmin, async (req, res) => {
+  try {
+    const season = await get('SELECT id FROM seasons WHERE is_active = 1');
+    // I vecchi ID Jolpica erano testuali (es. "max_verstappen"), quelli OpenF1 sono numerici
+    const old = await query("SELECT id FROM drivers WHERE season_id=$1 AND jolpica_id !~ '^[0-9]+$'", [season.id]);
+    const oldIds = old.map(d => d.id);
+    if (!oldIds.length) return res.json({ success: true, message: 'Nessun pilota duplicato trovato' });
+    await run(`DELETE FROM predictions WHERE driver_id = ANY($1)`, [oldIds]);
+    await run(`DELETE FROM race_results WHERE driver_id = ANY($1)`, [oldIds]);
+    await run(`DELETE FROM drivers WHERE id = ANY($1)`, [oldIds]);
+    res.json({ success: true, message: `Rimossi ${oldIds.length} piloti duplicati (vecchio formato Jolpica)` });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/sync/previous-year', requireAdmin, async (req, res) => {
   try { await fetchPreviousYearResults(2026); res.json({ success: true, message: 'Storico 2025 importato' }); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -69,11 +83,6 @@ router.get('/payments', requireAdmin, async (req, res) => {
 router.post('/payments/:id/complete', requireAdmin, async (req, res) => {
   await run("UPDATE payments SET status = 'completed', completed_at = $1 WHERE id = $2", [new Date().toISOString(), req.params.id]);
   res.json({ success: true });
-});
-
-router.post('/races/reset-statuses', requireAdmin, async (req, res) => {
-  await run("UPDATE races SET status = 'upcoming'", []);
-  res.json({ success: true, message: 'Tutte le gare resettate a upcoming' });
 });
 
 router.get('/races', requireAdmin, async (req, res) => {
