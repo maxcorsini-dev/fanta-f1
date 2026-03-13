@@ -131,6 +131,36 @@ router.post('/races/reset-statuses', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Pronostici di un utente per una gara
+router.get('/races/:id/predictions/:userId', requireAdmin, async (req, res) => {
+  const predictions = await query(
+    'SELECT * FROM predictions WHERE race_id = $1 AND user_id = $2',
+    [req.params.id, req.params.userId]
+  );
+  res.json(predictions);
+});
+
+// Salva pronostici per conto di un utente (bypassa check status)
+router.post('/races/:id/predict-for-user', requireAdmin, async (req, res) => {
+  try {
+    const raceId = parseInt(req.params.id);
+    const { user_id, predictions, pole_driver_id } = req.body;
+    if (!user_id || !predictions?.length) return res.status(400).json({ error: 'user_id e predictions sono obbligatori' });
+
+    const positions = predictions.filter(p => !p.is_dnf).map(p => p.predicted_position);
+    if (new Set(positions).size !== positions.length) return res.status(400).json({ error: 'Posizione duplicata' });
+
+    await run('DELETE FROM predictions WHERE user_id = $1 AND race_id = $2', [user_id, raceId]);
+    for (const pred of predictions) {
+      await run(`INSERT INTO predictions (user_id, race_id, driver_id, predicted_position, is_dnf_prediction, is_pole_prediction)
+        VALUES ($1, $2, $3, $4, $5, $6)`,
+        [user_id, raceId, pred.driver_id, pred.is_dnf ? null : pred.predicted_position,
+         pred.is_dnf ? 1 : 0, pred.driver_id === pole_driver_id ? 1 : 0]);
+    }
+    res.json({ success: true, message: `Pronostici salvati per l'utente` });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Risultati di una gara (per gestione incidenti)
 router.get('/races/:id/results', requireAdmin, async (req, res) => {
   const results = await query(`
