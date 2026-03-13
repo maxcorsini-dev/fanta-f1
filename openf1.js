@@ -178,9 +178,14 @@ async function fetchPreviousYearResults(currentYear = 2026) {
 }
 
 async function updateRaceStatuses() {
-  const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  await run("UPDATE races SET status='open' WHERE status='upcoming' AND deadline>$1 AND date>$1", [now]);
-  await run("UPDATE races SET status='closed' WHERE status='open' AND deadline<=$1", [now]);
+  // Chiude le gare la cui deadline è passata
+  await run("UPDATE races SET status='closed' WHERE status='open' AND deadline::timestamp <= NOW()");
+  // Apre le gare upcoming solo quando mancano al massimo 7 giorni alla loro deadline
+  await run(`UPDATE races SET status='open'
+    WHERE status='upcoming'
+    AND deadline::timestamp > NOW()
+    AND date::timestamp > NOW()
+    AND NOW() >= (deadline::timestamp - INTERVAL '7 days')`);
 }
 
 module.exports = { fetchCalendar, fetchDrivers, fetchRaceResults, fetchPreviousYearResults, updateRaceStatuses };
