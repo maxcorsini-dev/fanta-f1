@@ -5,20 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fanta F1 2026 - Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    // Carica PayPal SDK - viene risolto prima che la pagina sia interattiva
-    window.paypalReady = new Promise(async (resolve) => {
-      try {
-        const cfg = await fetch("/api/config").then(r => r.json());
-        if (!cfg.paypalClientId) { resolve(false); return; }
-        const s = document.createElement("script");
-        s.src = "https://www.paypal.com/sdk/js?client-id=" + cfg.paypalClientId + "&currency=EUR&components=buttons";
-        s.onload = () => resolve(true);
-        s.onerror = () => resolve(false);
-        document.head.appendChild(s);
-      } catch(e) { resolve(false); }
-    });
-  </script>
   <style>
     body { background: #0a0a0a; color: white; }
     .f1-red { color: #e10600; }
@@ -122,25 +108,7 @@
         <button onclick="closeModal()" class="text-gray-500 hover:text-white text-2xl leading-none">×</button>
       </div>
 
-      <!-- Step 1: Pagamento -->
-      <div id="step-payment" class="p-5">
-        <div class="text-center py-4">
-          <div class="text-4xl mb-3">💳</div>
-          <h4 class="font-bold text-lg mb-1">Quota di partecipazione</h4>
-          <p class="text-gray-400 text-sm mb-5">Pronostici salvati! Per partecipare alla classifica paga la quota di 1€ per questo GP.</p>
-          <div class="bg-gray-800 rounded-lg p-4 mb-5">
-            <div class="flex items-center justify-between">
-              <span class="text-gray-300">Quota GP</span>
-              <span class="font-bold text-xl">1,00 €</span>
-            </div>
-          </div>
-          <div id="paypal-button-container"></div>
-          <p class="text-xs text-gray-600 mt-3">Pagamento sicuro tramite PayPal</p>
-        </div>
-      </div>
-
-      <!-- Step 2: Pronostici -->
-      <div id="step-predict" class="hidden">
+      <div id="step-predict">
         <div class="p-4 bg-gray-800 border-b border-gray-700">
           <p class="text-sm text-gray-400">
             <span class="text-yellow-400">💡</span>
@@ -234,10 +202,6 @@
           ? `<button onclick="showResults(${race.id})" class="btn-gray text-sm w-full mt-3">📊 VEDI RISULTATI</button>`
           : '';
 
-        const paidBadge = race.has_paid
-          ? '<span class="text-green-400 text-xs">✅ Pagato</span>'
-          : (race.status === 'open' ? '<span class="text-yellow-400 text-xs">💳 Da pagare</span>' : '');
-
         container.innerHTML += `
           <div class="card card-hover p-5 flex flex-col">
             <div class="flex items-start justify-between mb-1">
@@ -252,9 +216,8 @@
               <span>📅 ${formatDate(race.date)}</span>
               <span>⏰ Scadenza: ${formatDate(race.deadline)}</span>
             </div>
-            <div class="flex items-center justify-between mt-3">
-              ${paidBadge}
-              ${race.has_prediction ? '<span class="text-blue-400 text-xs">📝 Pronostici inseriti</span>' : '<span></span>'}
+            <div class="mt-3">
+              ${race.has_prediction ? '<span class="text-blue-400 text-xs">📝 Pronostici inseriti</span>' : ''}
             </div>
             ${actionBtn}
           </div>
@@ -331,52 +294,7 @@
       showPredictStep(data);
     }
 
-    async function showPaymentStep(raceId) {
-      document.getElementById('step-payment').classList.remove('hidden');
-      document.getElementById('step-predict').classList.add('hidden');
-
-      const container = document.getElementById('paypal-button-container');
-      container.innerHTML = '';
-
-      container.innerHTML = '<p class="text-yellow-400 text-sm text-center py-4">⏳ Caricamento PayPal...</p>';
-      const paypalOk = await window.paypalReady;
-      if (!paypalOk || typeof paypal === 'undefined') {
-        container.innerHTML = '<p class="text-red-400 text-sm text-center py-4">❌ PayPal non disponibile. Verifica la configurazione.</p>';
-        return;
-      }
-      container.innerHTML = '';
-
-      paypal.Buttons({
-        createOrder: async () => {
-          const res = await fetch('/api/paypal/create-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ race_id: raceId })
-          });
-          const data = await res.json();
-          if (!data.success && data.message) { alert(data.message); return; }
-          return data.orderId;
-        },
-        onApprove: async (data) => {
-          const res = await fetch('/api/paypal/capture-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_id: data.orderID })
-          });
-          const result = await res.json();
-          if (result.success) {
-            const raceData = await fetch(`/api/game/races/${currentRaceId}`).then(r => r.json());
-            showPredictStep(raceData);
-          }
-        },
-        onError: (err) => alert('Errore PayPal: ' + err)
-      }).render('#paypal-button-container');
-    }
-
     function showPredictStep(data) {
-      document.getElementById('step-payment').classList.add('hidden');
-      document.getElementById('step-predict').classList.remove('hidden');
-
       driversData = [...data.drivers];
 
       // Applica pronostici esistenti se presenti
@@ -482,13 +400,8 @@
 
       if (data.success) {
         loadRaces();
-        const payStatus = await fetch(`/api/paypal/status/${currentRaceId}`).then(r => r.json());
-        if (payStatus.paid) {
-          closeModal();
-          alert('✅ Pronostici salvati!');
-        } else {
-          showPaymentStep(currentRaceId);
-        }
+        closeModal();
+        alert('✅ Pronostici salvati!');
       } else {
         alert('❌ ' + data.error);
       }
@@ -537,8 +450,6 @@
 
     function closeModal() {
       document.getElementById('modal-predict').classList.remove('open');
-      document.getElementById('step-payment').classList.remove('hidden');
-      document.getElementById('step-predict').classList.add('hidden');
     }
 
     // ---- HELPERS ----
